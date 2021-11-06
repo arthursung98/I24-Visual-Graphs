@@ -25,9 +25,6 @@ class Visualization :
             car_lane : Desired lane number to analyze.
             start_frame : Starting frame number for the plot.
             end_frame : Ending frame number for the plot.
-
-        Return :
-            The queryed DataFrame.
         """
         camera_min, camera_max = find_x_range(self.camera_num)
         
@@ -61,6 +58,12 @@ def read_data(file_name, skiprows = 0, index_col = False):
     """ Transforms a csv file into a Pandas DataFrame.
     The only factors we are concerned about in plotting is the front_x position, back_x position,
     y postition, Frame#, Timestamp, and ID.
+    
+    Args :
+        file_name : The location / name of the Matrix CSV file.
+        
+    Return :
+        The queryed DataFrame.
     """
     
     df = pd.read_csv(file_name, skiprows = skiprows,error_bad_lines=False,index_col = index_col)
@@ -71,10 +74,17 @@ def read_data(file_name, skiprows = 0, index_col = False):
 
 
 def find_x_range(camera_num) :    
-    """ Finds the visual range of the camera from the inputted camera_num. 
-    Originally, 3 : [630, 790]. Changed for some plot testing.
-    Originally, 4 : [640, 810]
+    """ Helper function that acts like a dictionary to find the visual range 
+    of the camera from the inputted camera_num. 
+    
+    Args :
+        camera_num : The number of the Camera that we want to find the range for.
+        
+    Return :
+        2 ints : first is the starting point of the Camera's vision, second is the end.
     """
+    # Originally, 3 : [630, 790]. Changed for some plot testing.
+    # Originally, 4 : [640, 810]
     
     cam_range = {
         1 : [200, 440],
