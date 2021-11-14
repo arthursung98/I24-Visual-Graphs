@@ -26,35 +26,62 @@ class Visualization :
             start_frame : Starting frame number for the plot.
             end_frame : Ending frame number for the plot.
         """
-        camera_min, camera_max = find_x_range(self.camera_num)
+        
+        camera_min, camera_max = find_camera_range(self.camera_num)
         
         df = read_data(self.file_name, 0)
-        df = query(df, car_lane, start_frame, end_frame)
+        df = query_df(df, car_lane, start_frame, end_frame)
+        id_arr = df.ID.unique()
+        
+        fig, ax = plt.subplots(figsize=(7,7))
+        ax.set_aspect('auto')
+        plt.xlim(start_frame, end_frame)
+        plt.ylim(camera_min, camera_max)
+        
+        for car_id in id_arr : 
+            car_snap = df.loc[df['ID'] == car_id]
+            car_snap = car_snap.sort_values(by=['Frame #']).reset_index()
+            
+            x_ar = get_frame(car_snap)
+            front_y = get_position(car_snap, 'fbr_x')
+            back_y = get_position(car_snap, 'bbr_x')
+            rgb = (random.random(), random.random(), random.random())
+            
+            plt.plot(x_ar, front_y, color=rgb)
+            plt.plot(x_ar, back_y, color=rgb)
+            plt.fill_between(x_ar, front_y, back_y, color=rgb, label=f'Car #{car_id}')
 
-        fig, ax = plt.subplots(figsize=(15,15))
-        ax.set_aspect(1)
-
-        for i in range(start_frame, end_frame) :
-            plt.xlim(start_frame, end_frame)
-            plt.ylim(camera_min, camera_max)
-
-            frame_snap = df.loc[df['Frame #'] == i]
-            frame_snap = frame_snap.reset_index()
-
-            for j in range(len(frame_snap)) :
-                front_x = frame_snap.at[j,'fbr_x'] * 3.28084
-                back_x = frame_snap.at[j,'bbr_x'] * 3.28084
-
-                plt.scatter(i, front_x, color='red')
-                plt.scatter(i, back_x, color='blue')
-
-        plt.title(f'Camera #{self.camera_num}, Lane #{car_lane}', fontdict={'fontsize':'x-large','fontweight':'bold'}, pad=20)
+        plt.title(f'Camera #{self.camera_num}, Lane #{car_lane}', fontdict={'fontsize':'x-large'}, pad=20)
         plt.xlabel('Frame #')
-        plt.ylabel('Car Positions')
-        plt.savefig(f'../Plot Results/p{self.pole_num}c{self.camera_num}_lane{car_lane}_timespace.jpg')
+        plt.ylabel('Car Positions( ft )')
+        plt.legend(loc='upper center', bbox_to_anchor=(1.15, 1), fancybox=True, shadow=True, ncol=1)
+        plt.savefig(f'../Output Graphs/p{self.pole_num}c{self.camera_num}_lane{car_lane}_timespace.jpg',  bbox_inches='tight')
+
+    def time_speed_graph(self, car_lane, start_frame, end_frame) :
+        x_ar, speed_ar = [], []
+        df = read_data(self.file_name, 0)
+        df = query_df(df, car_lane, start_frame, end_frame)
+        
+        fig, ax = plt.subplots(figsize=(7,7))
+        ax.set_aspect('auto')
+        plt.xlim(start_frame, end_frame)
+        plt.ylim(30, 40)
+        
+        for i in range(start_frame, end_frame) :
+            frame_snap = df.loc[df['Frame #'] == i].reset_index()
+            
+            x_ar.append(i)
+            speed_ar.append(compute_avg_speed(frame_snap))
+            
+        plt.plot(x_ar, speed_ar, color='darkcyan')
+        plt.title(f'Camera #{self.camera_num}, Lane #{car_lane}\nAverage Speed vs. Frame', fontdict={'fontsize':'x-large'}, pad=20)
+        plt.xlabel('Frame #')
+        plt.ylabel('Avg Speed (m/s)')
+        plt.savefig(f'../Output Graphs/p{self.pole_num}c{self.camera_num}_lane{car_lane}_timespeed.jpg',  bbox_inches='tight')
         
         
-def read_data(file_name, skiprows = 0, index_col = False):
+# Free Functions
+def read_data(file_name, skiprows = 0, index_col = False) :
     """ Transforms a csv file into a Pandas DataFrame.
     The only factors we are concerned about in plotting is the front_x position, back_x position,
     y postition, Frame#, Timestamp, and ID.
@@ -67,13 +94,13 @@ def read_data(file_name, skiprows = 0, index_col = False):
     """
     
     df = pd.read_csv(file_name, skiprows = skiprows,error_bad_lines=False,index_col = index_col)
-    df = df[['fbr_x','bbr_x','y','Frame #','Timestamp','ID']]
+    df = df[['fbr_x','bbr_x','y','Frame #','Timestamp','ID','speed']]
     df = df.fillna(0.0)
 
     return df
 
 
-def find_x_range(camera_num) :    
+def find_camera_range(camera_num) :    
     """ Helper function that acts like a dictionary to find the visual range 
     of the camera from the inputted camera_num. 
     
@@ -99,7 +126,7 @@ def find_x_range(camera_num) :
     return cam_range[camera_num][0], cam_range[camera_num][1]
 
 
-def query(df, car_lane, start_frame, end_frame) :
+def query_df(df, car_lane, start_frame, end_frame) :
     """ Querys the DataFrame with only the lanes and frame range that we want.
     
     Args :
@@ -130,3 +157,33 @@ def query(df, car_lane, start_frame, end_frame) :
     df = df.loc[df['Frame #'] <= end_frame]
 
     return df;
+
+
+def get_frame(car_df) :
+    frame_x = []
+
+    for i in range(len(car_df)) :
+        frame_x.append(car_df.at[i, 'Frame #'])
+
+    return frame_x
+
+
+def get_position(car_df, msg) :
+    position_y = []
+    
+    for i in range(len(car_df)) :
+        position_y.append(car_df.at[i, msg] * 3.28084)
+        
+    return position_y
+
+
+def compute_avg_speed(df) :
+    avg = 0.0
+    
+    for i in range(len(df)) :
+        avg += df.at[i, 'speed']
+        
+    if len(df) == 0 :
+        return 0.0
+    
+    return avg / (len(df))
